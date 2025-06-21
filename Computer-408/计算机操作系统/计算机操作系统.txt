@@ -13,3 +13,7 @@
 第三章：内存管理——内存管理的概念②http://mojishare.mojime.cn?keyValue=Q3dYgozE3r3pD7Mopigq4ohJ66NUqZaWboYwABeNDkzBCJbKK4pXMGr23pFKrhsdPg/71F2kDGAAL5DPMs4xUw==
 
 第三章：内存管理——虚拟内存管理http://mojishare.mojime.cn?keyValue=Q3dYgozE3r3pD7Mopigq4mgIPm/6PZFePd+BbGJA7127+Jmqz0xaX2lSaIqO04OpqwTHaK+DUML0ISSoafhxZw==
+
+第四章：文件管理——文件系统基础http://mojishare.mojime.cn?keyValue=Q3dYgozE3r3pD7Mopigq4gm1o2QzM4YOYXNUyDWTOtDAFpkMN2Fh2TPJ+hPJ3QdmKPLKsW/G1etGs/Oij0G+JQ==
+
+第四章：文件管理——文件系统怎么实现http://mojishare.mojime.cn?keyValue=Q3dYgozE3r3pD7Mopigq4vUd+VKQGxLrEWYmLYHUamIfMHYsXSWrHCMWWigUnn3LUaVvKSDwStgfWpwhxQR8Og==
