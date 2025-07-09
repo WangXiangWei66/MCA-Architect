@@ -48,24 +48,26 @@ AQS就是JUC包下的一个抽象类，很多JUC包下的工具都是基于AQS�
 https://hg.openjdk.org/jdk8u/jdk8u/hotspot/file/69087d08d473/src/share/vm/runtime/objectMonitor.hpp
 
 ```hpp
+//这段代码是 Java 对象监视器（ObjectMonitor）的构造函数，用于初始化对象锁的内部状态。ObjectMonitor 是 JVM 实现 synchronized 关键字和对象锁机制的核心组件
 ObjectMonitor() {
-    _header       = NULL;
-    _count        = 0;
-    _waiters      = 0,      // WaitSet里等待的线程个数。今儿不涉及
-    _recursions   = 0;      // 跟AQS的state一样。
-    _object       = NULL;
-    _owner        = NULL;   // 跟AQS的exclusiveOwnerThread一样
+    //锁状态与计数器
+    _header       = NULL; //指向对象头（Mark Word），存储对象的哈希码、分代年龄和锁状态。
+    _count        = 0; //记录锁的重入次数，当线程第一次获取锁时初始化为 1，每重入一次加 1，释放时减 1。
+    _waiters      = 0,      // 线程调用wait()方法后会释放锁并进入此队列，直到被notify()唤醒。
+    _recursions   = 0;      // 跟AQS的state一样。 与_count功能相同，双重记录以确保原子性。
+    _object       = NULL;	//关联的java对象
+    _owner        = NULL;   // 跟AQS的exclusiveOwnerThread一样 ， 指向当前持有锁的线程，若为NULL表示锁未被持有。
     _WaitSet      = NULL;   // 类似于AQS里的单向链表（双向链表） 今儿不涉及
-    _WaitSetLock  = 0 ;
-    _Responsible  = NULL ;
-    _succ         = NULL ;
-    _cxq          = NULL ;  // 类似于AQS里的同步队列（单向链表）。拿锁失败先扔cxq
-    FreeNext      = NULL ;
-    _EntryList    = NULL ;  // 类似于AQS里的同步队列（双向链表）。释放锁，可能会将cxq排队的节点扔到EntryList
-    _SpinFreq     = 0 ;
-    _SpinClock    = 0 ;
-    OwnerIsThread = 0 ;
-    _previous_owner_tid = 0;
+    _WaitSetLock  = 0 ;	// 保护_WaitSet的自旋锁（CAS实现）
+    _Responsible  = NULL ;	// 负责唤醒WaitSet线程的线程（很少使用）
+    _succ         = NULL ;	// 锁的后继线程（很少使用）
+    _cxq          = NULL ;  // 竞争锁失败的线程会被放入此队列（LIFO 结构），避免直接进入重量级锁。
+    FreeNext      = NULL ;	 // 用于ObjectMonitor对象的空闲链表（内存管理）
+    _EntryList    = NULL ;  // 锁释放时，JVM 会从_cxq或_EntryList中选择线程唤醒，通常优先处理_EntryList。
+    _SpinFreq     = 0 ;  // 自旋频率统计（自适应自旋锁优化）
+    _SpinClock    = 0 ;	 // 自旋时间统计（自适应自旋锁优化）
+    OwnerIsThread = 0 ;	// 标记_owner是否为线程（非0表示是线程）
+    _previous_owner_tid = 0; //记录前一个释放锁的线程 ID，用于调试或统计。
 }
 ```
 
@@ -84,7 +86,14 @@ void ATTR ObjectMonitor::enter(TRAPS) {…………}
 #### 4.1.1 分析enter函数
 
 ```cpp
+//这段代码是 Java 对象监视器（ObjectMonitor）的enter方法，对应 JVM 中synchronized关键字的底层实现。其核心逻辑是线程尝试获取锁的完整过程，包含快速获取、自旋优化和排队阻塞三个主要阶段。
 // monitorenter指令入口的函数
+//enter方法的执行流程可概括为：
+//1.快速尝试：通过 CAS 直接获取锁
+//2.重入处理：检查是否为锁重入
+//3.锁升级处理：从轻量级锁升级为重量级锁的情况
+//4.自旋优化：短暂自旋尝试获取锁，减少线程挂起开销
+//5.排队阻塞：若仍未获取锁，将线程放入等待队列并挂起
 void ATTR ObjectMonitor::enter(TRAPS) {、
   // Self就是当前线程
   Thread * const Self = THREAD ;
